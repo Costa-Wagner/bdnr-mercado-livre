@@ -1,0 +1,16 @@
+{
+  "_id": { "$oid": "id_vendedor" },
+  "nomeFantasiaVendedor": "string",
+  "razaoSocialVendedor": "string",
+  "cpf_cnpjVendedor": "string",
+  "senhaVendedor": "string",
+  "enderecoVendedor": [
+    {
+      "tipo": "comercial | entrega | cobranca",
+      "logradouro": "string",
+      "cidade": "string"
+    }
+  ],
+  "telefoneVendedor": "string",
+  "emailVendedor": "string"
+}

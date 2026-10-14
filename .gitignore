@@ -1,2 +1,8 @@
-.env
 REVISAO.md 
+
+.env
+.venv/
+__pycache__/
+*.pyc
+referencias/
+

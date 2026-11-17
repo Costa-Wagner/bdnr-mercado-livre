@@ -1,15 +1,19 @@
 # 📚 DSM – Desenvolvimento de Software Multiplataforma – FATEC/SJC
 
-Atividade prática **EX2** – Prof. Diogo Branquinho Ramos – Banco de Dados Não Relacional.
+Atividades práticas **EX2** e **EX3** – Prof. Diogo Branquinho Ramos – Banco de Dados Não Relacional.
 
-# 🛒 EX2 — BDNR Orientado a Documentos
+# 🛒 EX2 e EX3 — BDNR Orientado a Documentos e Chave-Valor
 
-REPOSITÓRIO ACADÊMICO · 3º sem DSM · Aplicação CRUD em linha de comando (Python e MongoDB) inspirada no modelo de marketplace do Mercado Livre: cadastro de usuários, vendedores, produtos e compras em banco não relacional, com validação de dados e senha hasheada.
+REPOSITÓRIO ACADÊMICO · 3º sem DSM · Aplicação CRUD em linha de comando (Python, MongoDB e Redis) inspirada no modelo de marketplace do Mercado Livre: cadastro de usuários, vendedores, produtos e compras em banco não relacional, com validação de dados e senha hasheada.
+
+- **EX2:** CRUD das quatro entidades no MongoDB.
+- **EX3:** itens do MongoDB (favoritos e endereços dos usuários) levados ao Redis, manipulados em um CRUD no próprio sistema e devolvidos ao MongoDB, mais um **login com sessão temporária** no Redis (`EXPIRE`).
 
 ## 📋 Requisitos
 
 - Python 3.13.7
 - Conta no MongoDB Atlas, com um cluster criado
+- Um banco Redis (Redis Cloud, plano gratuito) — o Redis Insight ajuda a visualizar as chaves
 - Ambiente virtual (`.venv`) recomendado
 
 ## 🛠 Tecnologias
@@ -23,6 +27,9 @@ REPOSITÓRIO ACADÊMICO · 3º sem DSM · Aplicação CRUD em linha de comando (
 <a href="https://pymongo.readthedocs.io" target="_blank" rel="noopener noreferrer">
 <img src="https://img.shields.io/badge/PyMongo-47A248?style=flat&logo=mongodb&logoColor=white" alt="PyMongo" height="25px">
 </a>
+<a href="https://redis-py.readthedocs.io" target="_blank" rel="noopener noreferrer">
+<img src="https://img.shields.io/badge/redis--py-DC382D?style=flat&logo=redis&logoColor=white" alt="redis-py" height="25px">
+</a>
 <a href="https://pypi.org/project/python-dotenv/" target="_blank" rel="noopener noreferrer">
 <img src="https://img.shields.io/badge/python--dotenv-ECD53F?style=flat" alt="python-dotenv" height="25px">
 </a>
@@ -34,6 +41,9 @@ REPOSITÓRIO ACADÊMICO · 3º sem DSM · Aplicação CRUD em linha de comando (
 <a href="https://www.mongodb.com/atlas" target="_blank" rel="noopener noreferrer">
 <img src="https://img.shields.io/badge/MongoDB_Atlas-47A248?style=flat&logo=mongodb&logoColor=white" alt="MongoDB Atlas" height="25px">
 </a>
+<a href="https://redis.io/cloud/" target="_blank" rel="noopener noreferrer">
+<img src="https://img.shields.io/badge/Redis_Cloud-DC382D?style=flat&logo=redis&logoColor=white" alt="Redis Cloud" height="25px">
+</a>
 </p>
 
 ## 🚀 Como executar
@@ -42,18 +52,34 @@ REPOSITÓRIO ACADÊMICO · 3º sem DSM · Aplicação CRUD em linha de comando (
 python -m venv .venv
 source .venv/Scripts/activate      # Git Bash (Windows)
 # .venv\Scripts\activate           # PowerShell/CMD (Windows)
-pip install pymongo python-dotenv
+pip install -r requirements.txt
+cp .env.example .env               # preencha com as suas credenciais
 python menu.py
 ```
 
-Execute na raiz do projeto, a pasta que contém o `menu.py`. É necessário um arquivo `.env` na raiz (não versionado — ver `.env.example`) com a connection string do seu cluster:
+Execute na raiz do projeto, a pasta que contém o `menu.py`. É necessário um arquivo `.env` na raiz (não versionado — ver `.env.example`):
 
 ```
+# MongoDB
 MONGO_URI=mongodb+srv://usuario:senha@seucluster.xxxxx.mongodb.net/?retryWrites=true&w=majority
+
+# Redis Cloud
+REDIS_HOST=seu-host.redis-cloud.com
+REDIS_PORT=6379
+REDIS_USERNAME=default
+REDIS_PASSWORD=sua-senha
+
+# Sessão de login (EX3)
+SESSAO_TTL=1800              # segundos; use 7 na apresentação
+SESSAO_RENOVAR=false
+SESSAO_ESPERA_LOGIN=3
+LOGIN_MOSTRAR_DICA=true
 ```
 
-- O menu roda continuamente no terminal até a opção "S" (sair) ser escolhida.
+- O sistema **sempre pede login ao abrir**. Usuário e senha aparecem na tela como "colinha" (`admin` / `admin123`); para esconder, `LOGIN_MOSTRAR_DICA=false`.
+- O menu roda continuamente no terminal até a opção "S" (sair) ser escolhida, e o logout apaga a sessão no Redis.
 - O banco MongoDB é `mercadolivre_ex2`, criado automaticamente no cluster na primeira inserção (não precisa ser criado manualmente).
+- Manual completo de instalação, uso e testes: [manual.md](manual.md).
 
 ## 🗂 Estrutura do projeto
 
@@ -61,7 +87,9 @@ MONGO_URI=mongodb+srv://usuario:senha@seucluster.xxxxx.mongodb.net/?retryWrites=
 bdnr-mercado-livre/
 ├── .env                (não versionado)
 ├── .env.example
-├── menu.py              menu principal (navegação)
+├── requirements.txt
+├── manual.md            manual de uso e testes
+├── menu.py              menu principal (navegação, login e verificação de sessão)
 ├── app/
 │   ├── __init__.py
 │   ├── conexao.py       conexão compartilhada com o MongoDB
@@ -69,11 +97,13 @@ bdnr-mercado-livre/
 │   ├── usuario.py       CRUD de Usuario
 │   ├── vendedor.py      CRUD de Vendedor
 │   ├── produto.py       CRUD de Produto
-│   └── compra.py        CRUD de Compra
-└── referencias/          scripts de estudo, não usados pelo menu.py
-    ├── obj-json.py
-    ├── objeto.py
-    └── objetos.py
+│   ├── compra.py        CRUD de Compra
+│   ├── redis_sessao.py  EX3: conexão Redis, login com sessão (EXPIRE), sincronização Mongo ⇄ Redis
+│   └── redis_crud.py    EX3: CRUD de favoritos e endereços no Redis
+└── docs/
+    ├── testes.md        casos de teste do EX2
+    ├── testesEx3.md     casos de teste do EX3
+    └── EX3.pdf          enunciado do EX3
 ```
 
 ## 🌳 Estrutura de dependências dos módulos
@@ -83,20 +113,56 @@ menu.py ──┬──► app.usuario   ──► app.conexao (db) + app.valida
           ├──► app.vendedor  ──► app.conexao (db) + app.validadores
           ├──► app.produto   ──► app.conexao (db) + app.validadores
           │                       └─► consulta app.conexao.db.vendedor (embute dados do vendedor no produto)
-          └──► app.compra    ──► app.conexao (db) + app.validadores
-                                  └─► consulta db.usuario, db.vendedor, db.produto (referencia e embute dados)
+          ├──► app.compra    ──► app.conexao (db) + app.validadores
+          │                       └─► consulta db.usuario, db.vendedor, db.produto (referencia e embute dados)
+          ├──► app.redis_sessao ──► app.conexao (db) + Redis
+          └──► app.redis_crud   ──► app.redis_sessao (r, COLECAO) + Redis
 ```
 
 ## 🖥 Estrutura do menu
 
 ```bash
-Menu Principal
+Login (sessão temporária no Redis)
+Menu Principal   → cada acesso a menu verifica a sessão e mostra "[Sessão] verificada em ..."
 ├── 1 - CRUD Usuário    → 1 Create · 2 Read · 3 Update · 4 Delete
 ├── 2 - CRUD Vendedor   → 1 Create · 2 Read · 3 Update · 4 Delete
 ├── 3 - CRUD Produto    → 1 Create · 2 Read · 3 Update · 4 Delete
 ├── 4 - CRUD Compra     → 1 Create · 2 Read · 3 Update · 4 Delete
+├── 5 - Mongo → Redis   → copia favoritos e endereços de cada usuário para o Redis
+├── 6 - Redis → Mongo   → devolve ao Mongo os itens (já editados)
+├── 7 - CRUD Redis      → 1 Create · 2 Read · 3 Update · 4 Delete (favoritos e endereços)
 └── S - Sair
 ```
+
+## 🔴 EX3 — Redis
+
+### Fluxo do exercício
+
+1. **Opção 5 (Mongo → Redis):** para cada usuário com `email`, grava no Redis duas chaves do tipo String com uma lista em JSON. O MongoDB não perde nada (a operação copia).
+2. **Opção 7 (CRUD no Redis):** Create, Read, Update e Delete dos favoritos e endereços. O usuário é escolhido por nome, CPF ou e-mail.
+3. **Opção 6 (Redis → Mongo):** lê as chaves já editadas e grava no documento do usuário; os favoritos voltam como `ObjectId`. Chaves com JSON inválido, ids inválidos ou usuário inexistente são ignoradas com aviso.
+
+### Chaves no Redis
+
+| Chave | Conteúdo | TTL |
+|---|---|---|
+| `fav_<email>` | lista JSON com os ids dos produtos favoritos (texto) | sem expiração |
+| `end_<email>` | lista JSON de endereços (`logradouro`, `num`, `bairro`, `cidade`, `estado`, `cep`) | sem expiração |
+| `sessao:ativa` | `{"usuario": ..., "token": ...}` da sessão de login | definido por `EXPIRE` (`SESSAO_TTL`) |
+
+### Sessão com expiração
+
+- O login (usuário e senha fixos no código, senha comparada por hash SHA-256) grava `sessao:ativa` com `SET` + `EXPIRE`, na mesma transação.
+- Todo acesso a menu ou submenu verifica a chave no Redis e mostra `[Sessão] verificada em '<menu>': OK | usuário | expira em Ns`.
+- Ao expirar, o sistema avisa na tela, faz logout e abre sozinho a tela de login após `SESSAO_ESPERA_LOGIN` segundos, sem fechar o programa. O que estava sendo digitado é descartado.
+
+| Variável | Padrão | Significado |
+|---|---|---|
+| `SESSAO_TTL` | 1800 | Segundos de vida da sessão (7 na apresentação) |
+| `SESSAO_RENOVAR` | false | `true` renova o tempo a cada acesso a menu |
+| `SESSAO_ESPERA_LOGIN` | 3 | Segundos entre o aviso e a tela de login |
+| `SESSAO_LOGOUT_AUTO` | true | `false` só percebe a expiração ao abrir um menu |
+| `LOGIN_MOSTRAR_DICA` | true | Mostra a "colinha" de usuário e senha |
 
 ## 🗃 Modelo de dados
 
@@ -105,6 +171,7 @@ Usuario 1 ── * Compra (via usuario_id)
 Vendedor 1 ── * Produto (dados do vendedor embutidos no produto)
 Vendedor 1 ── * Compra (via vendedor_id)
 Produto  1 ── * item dentro de Compra.produtos (produto_id referenciado, preço copiado no momento da compra)
+Usuario  * ── * Produto (favoritos: lista de ObjectId de produtos no usuário)
 ```
 
 `Produto.vendedor` é um subdocumento **embutido** (não uma referência), copiado do Vendedor no momento da criação do produto — decisão de modelagem que evita Join na leitura, ao custo de duplicação (se o vendedor mudar telefone, produtos já cadastrados não atualizam automaticamente).
@@ -121,7 +188,9 @@ Produto  1 ── * item dentro de Compra.produtos (produto_id referenciado, pre
 | `nome`, `sobrenome` | string | |
 | `cpf` | string | 11 dígitos |
 | `senha` | string | hash SHA-256 |
+| `email` | string | usado como chave no Redis (`fav_<email>`, `end_<email>`) |
 | `end` | array de objetos | `logradouro`, `num`, `bairro`, `cidade`, `estado`, `cep` |
+| `favoritos` | array de ObjectId | ids de produtos favoritos |
 
 ### Vendedor
 
@@ -179,20 +248,27 @@ Produto  1 ── * item dentro de Compra.produtos (produto_id referenciado, pre
 | Produto não encontrado ao adicionar item à Compra | Mensagem, permite tentar outro nome |
 | Registro não encontrado em Update (Usuario, Vendedor, Produto, Compra) | Mensagem "não encontrado", operação cancelada sem gravar |
 | Entrada inválida (CPF, CNPJ, CEP, telefone, texto) | Repete a pergunta até receber um valor válido |
+| Login inválido | Mensagem e pergunta "Tentar de novo (S/N)?" |
+| Sessão expirada | Aviso, logout e retorno automático ao login |
+| Chave do Redis com JSON inválido (opções 6 e 7) | A chave é ignorada com aviso, sem alterar o MongoDB |
+| Usuário do Redis inexistente no Mongo (opção 6) | Aviso, e nenhum usuário é criado |
 
 ## 🧪 Testes
 
-Os testes foram executados manualmente contra o menu em execução, uma ação por vez, conferindo a saída no terminal e o estado dos documentos no MongoDB Compass. O roteiro completo está em [testes.md](/docs/testes.md). 
+Os testes foram executados manualmente contra o menu em execução, uma ação por vez, conferindo a saída no terminal, o estado dos documentos no MongoDB Compass e as chaves no Redis Insight. Os roteiros completos estão em [testes.md](/docs/testes.md) (EX2) e [testesEx3.md](/docs/testesEx3.md) (EX3).
 
 ## 💾 Persistência de dados
 
-Os dados ficam no **MongoDB Atlas**, no banco `mercadolivre_ex2` — persistentes entre execuções (diferente de um banco em memória). As coleções e o banco são criados automaticamente na primeira inserção de cada uma.
+Os dados ficam no **MongoDB Atlas**, no banco `mercadolivre_ex2` — persistentes entre execuções (diferente de um banco em memória). As coleções e o banco são criados automaticamente na primeira inserção de cada uma. No **Redis** ficam as cópias de trabalho de favoritos e endereços (sem expiração) e a sessão de login (com expiração).
 
 ## 🎯 Conceitos aplicados
 
 - Python 3 e Programação Estruturada
 - MongoDB (modelagem não relacional): embutimento vs. referência, decisão de modelagem por caso de uso
 - PyMongo: `insert_one`, `find`, `find_one`, `update_one` com `$set`, `delete_one`
+- Redis (chave-valor): `SET`, `GET`, `EXPIRE`, `PTTL`, `DEL`, `EXISTS`, `SCAN`, transação (`MULTI/EXEC`) com `pipeline`
+- Sincronização entre bancos diferentes, convertendo `ObjectId` ⇄ texto
+- Autenticação com sessão temporária e expiração controlada pelo Redis
 - Hashing de senha com `hashlib.sha256`
 - Validação de entrada e tratamento de exceções (`try/except`, laços de repetição até entrada válida)
 - Variáveis de ambiente com `python-dotenv`, separando credenciais do código
